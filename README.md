@@ -11,7 +11,7 @@ A lightweight PHP logging library providing **safe local log writing** and **rem
 > While working on my Go project [oh-shit-logger](https://github.com/zxc7563598/oh-shit-logger), I needed a centralized way to collect error information.  
 > Some friends were concerned about the performance overhead of PHP error reporting, so I wrapped my usual approach into a Composer package for easier reuse.
 
-**This project has been parsed and summarized by Zread. For a quick overview, check here:**  [Project Overview](https://zread.ai/zxc7563598/php-milvus)
+**This project has been parsed and summarized by Zread. For a quick overview, check here:**  [Project Overview](https://zread.ai/zxc7563598/php-lazylog)
 
 ---
 
