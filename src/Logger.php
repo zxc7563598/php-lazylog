@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Hejunjie\Lazylog;
 
 use Hejunjie\Lazylog\Logger\AsyncRemoteSender;
@@ -99,7 +101,7 @@ class Logger
      * - 不依赖外部进程，线程安全，适合协程/事件循环环境。
      *
      * ⚠️ 注意：
-     * - 此方法为“同步”上报，会在执行期间占用当前 Worker；
+     * - 此方法为”同步”上报，会在执行期间占用当前 Worker；
      * - 若上报接口延迟较高，可适当降低 `timeout` 或使用异步上报方法 {@see self::reportAsync()}。
      *
      * @param Throwable $exception 捕获的异常对象，将被格式化后上报
@@ -108,9 +110,9 @@ class Logger
      * @param array $context 额外上下文数据（例如请求信息、环境变量等）
      * @param int $timeout 超时时间（秒）
      *
-     * @return void
+     * @return bool 上报成功返回 true，失败返回 false
      */
-    public static function reportSync(Throwable $exception, string $url, string $project = 'unknown-project', array $context = [], int $timeout = 5): void
+    public static function reportSync(Throwable $exception, string $url, string $project = 'unknown-project', array $context = [], int $timeout = 5): bool
     {
         $payload = self::formatThrowable($exception, $project, $context);
         $data = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -123,7 +125,7 @@ class Logger
             ]
         ];
         $ctx = stream_context_create($opts);
-        @file_get_contents($url, false, $ctx);
+        return @file_get_contents($url, false, $ctx) !== false;
     }
 
     /**
@@ -160,7 +162,7 @@ class Logger
             'context'     => (object)$context,
             'server'      => [
                 'hostname'    => gethostname() ?: 'unknown',
-                'ip'          => '/',
+                'ip'          => $_SERVER['SERVER_ADDR'] ?? gethostbyname(gethostname() ?: 'localhost') ?: 'unknown',
                 'php_version' => PHP_VERSION,
             ],
         ];

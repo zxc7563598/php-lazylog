@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Hejunjie\Lazylog\Logger;
 
 class AsyncRemoteSender
@@ -73,27 +75,7 @@ class AsyncRemoteSender
     protected static function spawnWorker(string $tmpFile, string $url, string $phpBinary): void
     {
         $devNull = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' ? 'NUL' : '/dev/null';
-        $workerCode = <<<'PHP'
-$f = $argv[1] ?? '';
-$e = $argv[2] ?? '';
-$t = isset($argv[3]) ? (int)$argv[3] : 10;
-if (!$f || !$e) exit(1);
-if (!file_exists($f)) exit(0);
-$data = @file_get_contents($f);
-@unlink($f);
-if ($data === false) exit(0);
-$opts = [
-  'http' => [
-    'method'  => 'POST',
-    'header'  => "Content-Type: application/json\r\n",
-    'content' => $data,
-    'timeout' => $t,
-  ]
-];
-$ctx = stream_context_create($opts);
-@file_get_contents($e, false, $ctx);
-exit(0);
-PHP;
+        $workerCode = self::getWorkerCode();
         $useArrayCmd = defined('PHP_VERSION_ID') && PHP_VERSION_ID >= 70400;
         if ($useArrayCmd && function_exists('proc_open')) {
             $cmd = [$phpBinary, '-r', $workerCode, $tmpFile, $url, 10];
@@ -146,27 +128,7 @@ PHP;
     protected static function spawnWorkerFallbackShell(string $tmpFile, string $devNull, string $url, string $phpBinary): void
     {
         $php = escapeshellcmd($phpBinary);
-        $code = <<<'PHP'
-$f = $argv[1] ?? '';
-$e = $argv[2] ?? '';
-$t = isset($argv[3]) ? (int)$argv[3] : 10;
-if (!$f || !$e) exit(1);
-if (!file_exists($f)) exit(0);
-$data = @file_get_contents($f);
-@unlink($f);
-if ($data === false) exit(0);
-$opts = [
-  'http' => [
-    'method'  => 'POST',
-    'header'  => "Content-Type: application/json\r\n",
-    'content' => $data,
-    'timeout' => $t
-  ]
-];
-$ctx = stream_context_create($opts);
-@file_get_contents($e, false, $ctx);
-exit(0);
-PHP;
+        $code = self::getWorkerCode();
         $codeArg = escapeshellarg($code);
         $cmd = sprintf(
             '%s -r %s %s %s %s > %s 2>&1 %s',
@@ -183,5 +145,40 @@ PHP;
         } else {
             @exec($cmd);
         }
+    }
+
+    /**
+     * 返回子进程 worker 的 PHP 代码。
+     *
+     * 该代码在独立 PHP CLI 进程中运行，负责：
+     * - 读取临时文件中的 JSON payload
+     * - 删除临时文件
+     * - 通过 HTTP POST 发送到远程 URL
+     *
+     * @return string
+     */
+    private static function getWorkerCode(): string
+    {
+        return <<<'PHP'
+$f = $argv[1] ?? '';
+$e = $argv[2] ?? '';
+$t = isset($argv[3]) ? (int)$argv[3] : 10;
+if (!$f || !$e) exit(1);
+if (!file_exists($f)) exit(0);
+$data = @file_get_contents($f);
+@unlink($f);
+if ($data === false) exit(0);
+$opts = [
+  'http' => [
+    'method'  => 'POST',
+    'header'  => "Content-Type: application/json\r\n",
+    'content' => $data,
+    'timeout' => $t,
+  ]
+];
+$ctx = stream_context_create($opts);
+@file_get_contents($e, false, $ctx);
+exit(0);
+PHP;
     }
 }
